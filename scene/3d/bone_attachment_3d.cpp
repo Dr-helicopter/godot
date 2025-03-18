@@ -176,11 +176,28 @@ void BoneAttachment3D::_check_unbind() {
 }
 
 void BoneAttachment3D::_transform_changed() {
-	if (!is_inside_tree()) {
-		return;
-	}
+	if (!is_inside_tree()) return;
+	if (overriding){overriding = false; return;}
 
-	if (override_pose && !overriding) {
+	if (override_rot) {
+		Skeleton3D *sk = get_skeleton();
+
+		ERR_FAIL_NULL_MSG(sk, "Cannot override pose: Skeleton not found!");
+		ERR_FAIL_INDEX_MSG(bone_idx, sk->get_bone_count(), "Cannot override pose: Bone index is out of range!");
+
+		Transform3D our_trans = get_transform();
+		if (use_external_skeleton) {
+			our_trans = sk->get_global_transform().affine_inverse() * get_global_transform();
+		}
+		our_trans = Transform3D(
+			our_trans.basis,
+			sk->get_bone_global_pose(bone_idx).get_origin()
+		);
+		overriding = true;
+		sk->set_bone_global_pose(bone_idx, our_trans);
+		sk->force_update_all_dirty_bones();
+
+	} else if (override_pose) {
 		Skeleton3D *sk = get_skeleton();
 
 		ERR_FAIL_NULL_MSG(sk, "Cannot override pose: Skeleton not found!");
@@ -239,11 +256,10 @@ int BoneAttachment3D::get_bone_idx() const {
 }
 
 void BoneAttachment3D::set_override_pose(bool p_override) {
-	if (override_pose == p_override) {
-		return;
-	}
+	if (override_pose == p_override) return;
 
 	override_pose = p_override;
+
 	set_notify_transform(override_pose);
 	set_process_internal(override_pose);
 	if (!override_pose && bone_idx >= 0) {
@@ -259,6 +275,27 @@ void BoneAttachment3D::set_override_pose(bool p_override) {
 bool BoneAttachment3D::get_override_pose() const {
 	return override_pose;
 }
+
+
+
+
+
+
+void BoneAttachment3D::set_override_rot(bool r_override){
+	if (override_rot == r_override) return;
+
+	override_rot = r_override;
+}
+
+
+bool BoneAttachment3D::get_override_rot() const { return override_rot; }
+
+
+
+
+
+
+
 
 void BoneAttachment3D::set_use_external_skeleton(bool p_use_external) {
 	use_external_skeleton = p_use_external;
@@ -313,27 +350,34 @@ void BoneAttachment3D::_notification(int p_what) {
 }
 
 void BoneAttachment3D::on_skeleton_update() {
-	if (updating) {
-		return;
-	}
+	if (updating) return;
+	if (bone_idx < 0) { updating = false; return; }
+
+
 	updating = true;
-	if (bone_idx >= 0) {
-		Skeleton3D *sk = get_skeleton();
-		if (sk) {
-			if (!override_pose) {
-				if (use_external_skeleton) {
-					set_global_transform(sk->get_global_transform() * sk->get_bone_global_pose(bone_idx));
-				} else {
-					set_transform(sk->get_bone_global_pose(bone_idx));
-				}
-			} else {
-				if (!_override_dirty) {
-					_transform_changed();
-					_override_dirty = true;
-				}
-			}
+
+	Skeleton3D *sk = get_skeleton();
+	if (sk) {
+		if (override_rot){
+			set_transform(Transform3D(
+				get_transform().get_basis(),
+				sk->get_bone_global_pose(bone_idx).get_origin() )
+			);
+			_transform_changed();
+
+		} else if (!override_pose) {
+			if (use_external_skeleton)
+				set_global_transform(sk->get_global_transform() * sk->get_bone_global_pose(bone_idx));
+			else
+				set_transform(sk->get_bone_global_pose(bone_idx));
+
+
+		} else if (!_override_dirty) {
+				_transform_changed();
+				_override_dirty = true;
 		}
 	}
+	
 	updating = false;
 }
 #ifdef TOOLS_ENABLED
@@ -382,6 +426,17 @@ void BoneAttachment3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_override_pose", "override_pose"), &BoneAttachment3D::set_override_pose);
 	ClassDB::bind_method(D_METHOD("get_override_pose"), &BoneAttachment3D::get_override_pose);
 
+
+
+
+
+	ClassDB::bind_method(D_METHOD("set_override_rot", "override_rot"), &BoneAttachment3D::set_override_rot);
+	ClassDB::bind_method(D_METHOD("get_override_rot"), &BoneAttachment3D::get_override_rot);
+
+
+
+
+
 	ClassDB::bind_method(D_METHOD("set_use_external_skeleton", "use_external_skeleton"), &BoneAttachment3D::set_use_external_skeleton);
 	ClassDB::bind_method(D_METHOD("get_use_external_skeleton"), &BoneAttachment3D::get_use_external_skeleton);
 	ClassDB::bind_method(D_METHOD("set_external_skeleton", "external_skeleton"), &BoneAttachment3D::set_external_skeleton);
@@ -390,4 +445,5 @@ void BoneAttachment3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "bone_name"), "set_bone_name", "get_bone_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "bone_idx"), "set_bone_idx", "get_bone_idx");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "override_pose"), "set_override_pose", "get_override_pose");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "overrie_rot"), "set_override_rot", "get_override_rot");
 }

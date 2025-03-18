@@ -44,6 +44,9 @@ class BoneAttachment3D : public Node3D {
 	bool _override_dirty = false;
 	bool overriding = false;
 
+
+	bool override_rot = false;
+
 	bool use_external_skeleton = false;
 	NodePath external_skeleton_node;
 	ObjectID external_skeleton_node_cache;
@@ -85,6 +88,9 @@ public:
 
 	void set_override_pose(bool p_override);
 	bool get_override_pose() const;
+
+	void set_override_rot(bool r_override);
+	bool get_override_rot() const;
 
 	void set_use_external_skeleton(bool p_external_skeleton);
 	bool get_use_external_skeleton() const;
