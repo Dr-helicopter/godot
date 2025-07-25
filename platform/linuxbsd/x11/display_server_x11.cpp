@@ -5450,7 +5450,11 @@ void DisplayServerX11::_update_context(WindowData &wd) {
 				class_str = config_name.utf8();
 			}
 		} else {
-			class_str = "Godot";
+			if (context == CONTEXT_EDITOR){
+				class_str = "Godot Editor";
+			} else {
+				class_str = "Godot";
+			}
 		}
 
 		classHint->res_class = class_str.ptrw();
